@@ -53,6 +53,24 @@ def delete_expense(expense_id):
         )
 
 
+def update_expense(expense_id, description, amount, category, expense_date):
+    with get_connection() as conn:
+        conn.execute(
+            """UPDATE expenses
+               SET description = ?,
+                   amount = ?,
+                   category = ?,
+                   expense_date = ?
+               WHERE id = ?""",
+            (
+                description,
+                amount,
+                category,
+                expense_date,
+                int(expense_id)
+            )
+        )
+
 init_db()
 
 st.set_page_config(page_title="Expense Tracker", page_icon="💰")
@@ -132,6 +150,67 @@ else:
         use_container_width=True,
         hide_index=True
     )
+
+    
+    st.subheader("Edit an expense")
+
+    edit_options = {
+        f"#{row.id} — {row.description} (₹{row.amount:.2f})": row
+        for row in df.itertuples()
+    }
+
+    if edit_options:
+        selected_edit = st.selectbox(
+            "Choose an expense to edit",
+            options=list(edit_options.keys()),
+            key="edit_expense_select"
+        )
+
+        expense = edit_options[selected_edit]
+
+        with st.form("edit_expense_form"):
+            new_description = st.text_input(
+                "Description",
+                value=expense.description
+            )
+
+            new_amount = st.number_input(
+                "Amount (₹)",
+                min_value=0.01,
+                value=float(expense.amount),
+                step=10.0
+            )
+
+            new_category = st.selectbox(
+                "Category",
+                categories,
+                index=categories.index(expense.category)
+            )
+
+            new_date = st.date_input(
+                "Date",
+                value=date.fromisoformat(expense.expense_date)
+            )
+
+            save_edit = st.form_submit_button("Save changes")
+
+            if save_edit:
+                if not new_description.strip():
+                    st.error("Description cannot be empty.")
+                elif new_amount <= 0:
+                    st.error("Amount must be greater than zero.")
+                else:
+                    update_expense(
+                        expense.id,
+                        new_description.strip(),
+                        new_amount,
+                        new_category,
+                        new_date.isoformat()
+                    )
+                    st.success("Expense updated successfully!")
+                    st.rerun()
+    else:
+        st.info("Add an expense before trying to edit it.")
 
     st.subheader("Delete an expense")
     expense_options = {
